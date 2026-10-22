@@ -1,39 +1,77 @@
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { AuthProvider } from './AuthContext';
-import { useAuth } from './useAuth';
+import { renderHook, act } from '@testing-library/react';
+import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { AuthProvider, useAuth } from './AuthContext';
+import { loginService } from '../api/authApi';
 
-// Componente auxiliar SOLO para pruebas: expone lo que hay en el contexto
-function Espia() {
-  const { usuario, iniciarSesion } = useAuth();
-  return (
-    <div>
-      <p data-testid="nombre">{usuario ? usuario.nombre : 'sin sesión'}</p>
-      <button onClick={() => iniciarSesion('token-123', { id: 1, nombre: 'Ana', rol: 'gerente' })}>
-        entrar
-      </button>
-    </div>
-  );
-}
+// Mock del servicio de la API de autenticación
+vi.mock('../api/authApi', () => ({
+  loginService: vi.fn()
+}));
 
-describe('AuthProvider', () => {
-  test('CP-U04: sin datos en localStorage, no hay usuario', () => {
-    render(<AuthProvider><Espia /></AuthProvider>);
-    expect(screen.getByTestId('nombre')).toHaveTextContent('sin sesión');
+describe('AuthContext - Pruebas Unitarias', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
   });
 
-  test('CP-U05: iniciarSesion guarda token y usuario en localStorage', async () => {
-    const user = userEvent.setup();
-    render(<AuthProvider><Espia /></AuthProvider>);
-    await user.click(screen.getByRole('button', { name: 'entrar' }));
-    expect(localStorage.getItem('token')).toBe('token-123');
-    expect(JSON.parse(localStorage.getItem('usuario'))).toEqual({ id: 1, nombre: 'Ana', rol: 'gerente' });
-    expect(screen.getByTestId('nombre')).toHaveTextContent('Ana');
+  test('CP-09: Estado inicial nulo cuando no hay datos almacenados en localStorage', () => {
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: AuthProvider
+    });
+
+    expect(result.current.usuario).toBeNull();
+    expect(result.current.token).toBeNull();
   });
 
-  test('CP-U06: si ya había sesión guardada, la recupera al cargar', () => {
-    localStorage.setItem('usuario', JSON.stringify({ id: 2, nombre: 'Luis', rol: 'vendedor' }));
-    render(<AuthProvider><Espia /></AuthProvider>);
-    expect(screen.getByTestId('nombre')).toHaveTextContent('Luis');
+  test('CP-10: Carga la sesión almacenada en localStorage al montar el proveedor', () => {
+    const usuarioMock = { id: 1, correo: 'admin@crmpyme.com', rol: 'admin' };
+    localStorage.setItem('token', 'fake-jwt-token');
+    localStorage.setItem('usuario', JSON.stringify(usuarioMock));
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: AuthProvider
+    });
+
+    expect(result.current.token).toBe('fake-jwt-token');
+    expect(result.current.usuario).toEqual(usuarioMock);
+  });
+
+  test('login: Almacena token y usuario en localStorage y actualiza el estado', async () => {
+    const datosRespuesta = {
+      token: 'jwt-token-123',
+      usuario: { id: 2, correo: 'vendedor@crmpyme.com', rol: 'vendedor' }
+    };
+    loginService.mockResolvedValue(datosRespuesta);
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: AuthProvider
+    });
+
+    await act(async () => {
+      await result.current.login('vendedor@crmpyme.com', '123456');
+    });
+
+    expect(result.current.token).toBe('jwt-token-123');
+    expect(result.current.usuario).toEqual(datosRespuesta.usuario);
+    expect(localStorage.getItem('token')).toBe('jwt-token-123');
+    expect(localStorage.getItem('usuario')).toBe(JSON.stringify(datosRespuesta.usuario));
+  });
+
+  test('logout: Elimina las llaves de localStorage y limpia el estado', () => {
+    localStorage.setItem('token', 'jwt-token-123');
+    localStorage.setItem('usuario', JSON.stringify({ id: 1 }));
+
+    const { result } = renderHook(() => useAuth(), {
+      wrapper: AuthProvider
+    });
+
+    act(() => {
+      result.current.logout();
+    });
+
+    expect(result.current.token).toBeNull();
+    expect(result.current.usuario).toBeNull();
+    expect(localStorage.getItem('token')).toBeNull();
+    expect(localStorage.getItem('usuario')).toBeNull();
   });
 });

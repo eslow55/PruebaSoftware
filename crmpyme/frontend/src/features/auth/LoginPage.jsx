@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../../api/authApi';
-import { useAuth } from '../../context/useAuth';
+import { useAuth } from "../../context/AuthContext";
 import './LoginPage.css';
 
 const RUTA_POR_ROL = {
@@ -14,17 +14,25 @@ function LoginPage() {
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [cargando, setCargando] = useState(false); // CA-07: Estado para controlar el envío
   const { iniciarSesion } = useAuth();
   const navigate = useNavigate();
 
   const manejarEnvio = async (e) => {
     e.preventDefault();
+    if (cargando) return; // CA-07: Bloquea envíos múltiples o doble clic
+
+    setMensaje(''); // CA-07: Limpia alertas previas
+    setCargando(true); // CA-07: Cambia estado a cargando
+
     try {
       const { token, usuario } = await login(correo, password);
       iniciarSesion(token, usuario);
       navigate(RUTA_POR_ROL[usuario.rol] || '/');
     } catch (error) {
       setMensaje(error.response?.data?.error?.message || 'Error al iniciar sesión');
+    } finally {
+      setCargando(false); // CA-07: Restaura el botón tras responder
     }
   };
 
@@ -59,9 +67,17 @@ function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <button className="login-button" type="submit">Login</button>
+          {/* CA-07: Deshabilitado en estado cargando y texto condicional */}
+          <button className="login-button" type="submit" disabled={cargando}>
+            {cargando ? 'Ingresando...' : 'Login'}
+          </button>
         </form>
-        {mensaje && <p className="login-message">{mensaje}</p>}
+        {/* CA-08: Atributo role="alert" para lectores de pantalla */}
+        {mensaje && (
+          <p role="alert" className="login-message">
+            {mensaje}
+          </p>
+        )}
       </div>
     </div>
   );
