@@ -16,4 +16,6 @@ export default defineConfig({
     },
   },
   exclude: ['**/*.test.{js,jsx}'],
+
+  include: ['src/**/*.{js,jsx}'],
 })

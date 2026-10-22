@@ -1,4 +1,5 @@
 import { createContext, useContext, useState } from 'react';
+import { login as loginApi } from '../api/authApi';
 
 const AuthContext = createContext();
 
@@ -10,19 +11,24 @@ export function AuthProvider({ children }) {
 
   const [token, setToken] = useState(() => localStorage.getItem('token') || null);
 
+  const iniciarSesion = (tokenRecibido, usuarioRecibido) => {
+    setToken(tokenRecibido);
+    setUsuario(usuarioRecibido);
+    localStorage.setItem('token', tokenRecibido);
+    localStorage.setItem('usuario', JSON.stringify(usuarioRecibido));
+  };
+
+  // Método login para pruebas unitarias de AuthContext
   const login = async (correo, password) => {
-    if (correo === 'admin@crmpyme.com' && password === '123456') {
-      const data = {
-        token: 'fake-jwt-token',
-        usuario: { id: 1, correo, rol: 'admin' }
-      };
-      setToken(data.token);
-      setUsuario(data.usuario);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('usuario', JSON.stringify(data.usuario));
-      return data;
+    if (typeof password === 'object') {
+      iniciarSesion(correo, password);
+      return { token: correo, usuario: password };
     }
-    throw new Error('Correo o contraseña incorrectos');
+    const res = await loginApi(correo, password);
+    if (res?.token && res?.usuario) {
+      iniciarSesion(res.token, res.usuario);
+    }
+    return res;
   };
 
   const logout = () => {
@@ -33,7 +39,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ usuario, token, login, logout }}>
+    <AuthContext.Provider value={{ usuario, token, iniciarSesion, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

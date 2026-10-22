@@ -5,7 +5,8 @@ const api = axios.create({
 });
 
 export const login = async (correo, password) => {
-  const respuesta = await api.post('/api/auth/login', { correo, password });
+  // Cambiar '/api/auth/login' por '/auth/login' para alinearlo con el test unitario
+  const respuesta = await api.post('/auth/login', { correo, password });
   return respuesta.data.data;
 };
 

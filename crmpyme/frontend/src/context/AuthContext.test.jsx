@@ -75,3 +75,7 @@ describe('AuthContext - Pruebas Unitarias', () => {
     expect(localStorage.getItem('usuario')).toBeNull();
   });
 });
+
+vi.mock('../api/authApi', () => ({
+  login: vi.fn(),
+}));
