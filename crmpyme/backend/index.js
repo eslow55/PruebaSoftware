@@ -1,9 +1,17 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors'); // 1. Importar el paquete CORS
 const { ok, fail } = require('./utils/apiResponse');
 const authService = require('./modules/auth/auth.service');
 
 const app = express();
+
+// 2. Configurar CORS antes de los middlewares de rutas
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,
+}));
+
 app.use(express.json());
 
 app.get('/ping', (req, res) => res.send('pong'));
